@@ -10,8 +10,6 @@ TEST(Test, TestConnect) {
 
     std::string request = "CONNECT mrpipiskin.com:228 HTTP/1.1\r\nHost: mrpipiskin.com:228\r\nProxy-Authorization: sosal\r\n";
 
-    ASSERT_EQ(is_connect(request), true);
-
     connect_request cr;
 
     ASSERT_EQ(parse_connect(request, cr), HTTP_OK);

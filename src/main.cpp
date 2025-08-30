@@ -190,57 +190,44 @@ int main(int argc, char **argv)
                 clients.erase(conn_sock_fd);
             }
             else
-            {
+            { 
+                connect_request req;
                 std::string msg{recv_buff.get(), bytes};
-                if (not is_connect(msg))
-                {
+                if (int ret =  parse_connect(msg, req); ret != HTTP_OK) {
                     io_uring_sqe *sqe = io_uring_get_sqe(&ring);
                     event_t write_event{.fd = conn_sock_fd, .type = WRITE};
-                    io_uring_prep_send(sqe, conn_sock_fd, send_buff.get(), http_response(HTTP_METHOD_NOT_ALLOWED, send_buff.get()), 0);
+                    io_uring_prep_send(sqe, conn_sock_fd, send_buff.get(), http_response(ret, send_buff.get()), 0);
                     io_uring_sqe_set_data(sqe, &write_event);
 
                     clients.erase(conn_sock_fd);
+                } else {
 
-                }
-                else
-                {   
-                    connect_request req;
-                    
-                    if (int ret =  parse_connect(std::string(msg), req); ret != HTTP_OK) {
+                    task resolve{
+                        .task_function = resolve_task, 
+                        .arg = new std::pair<std::string, std::string>(req.host, req.port), 
+                        .u64 = (uint64_t)conn_sock_fd};
+                    // need to delete pair
+
+                    if (not sq->push(resolve)) {
+                        
                         io_uring_sqe *sqe = io_uring_get_sqe(&ring);
                         event_t write_event{.fd = conn_sock_fd, .type = WRITE};
-                        io_uring_prep_send(sqe, conn_sock_fd, send_buff.get(), http_response(ret, send_buff.get()), 0);
+                        io_uring_prep_send(sqe, conn_sock_fd, send_buff.get(), http_response(HTTP_SERVER_UNAVALIBLE, send_buff.get()), 0);
                         io_uring_sqe_set_data(sqe, &write_event);
     
                         clients.erase(conn_sock_fd);
-                    } else {
 
-                        task resolve{
-                            .task_function = resolve_task, 
-                            .arg = new std::pair<std::string, std::string>(req.host, req.port), 
-                            .u64 = (uint64_t)conn_sock_fd};
-                        // need to delete pair
-
-                        if (not sq->push(resolve)) {
-                            
-                            io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-                            event_t write_event{.fd = conn_sock_fd, .type = WRITE};
-                            io_uring_prep_send(sqe, conn_sock_fd, send_buff.get(), http_response(HTTP_SERVER_UNAVALIBLE, send_buff.get()), 0);
-                            io_uring_sqe_set_data(sqe, &write_event);
-        
-                            clients.erase(conn_sock_fd);
-
-                        }
-                        // need to add reading from pipe before loop
-
-                        // io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-                        // event_t write_event{.fd = conn_sock_fd, .type = WRITE};
-                        // io_uring_prep_send(sqe, conn_sock_fd, send_buff, http_response(HTTP_OK, send_buff), 0);
-                        // io_uring_sqe_set_data(sqe, &write_event);
-
-                        clients[conn_sock_fd].status = RESOLVING;
                     }
+                    // need to add reading from pipe before loop
+
+                    // io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+                    // event_t write_event{.fd = conn_sock_fd, .type = WRITE};
+                    // io_uring_prep_send(sqe, conn_sock_fd, send_buff, http_response(HTTP_OK, send_buff), 0);
+                    // io_uring_sqe_set_data(sqe, &write_event);
+
+                    clients[conn_sock_fd].status = RESOLVING;
                 }
+                
             }
         } 
         else if (ready_event->type == WORK) {
