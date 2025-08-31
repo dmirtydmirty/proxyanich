@@ -26,7 +26,6 @@ target_link_libraries(worker PUBLIC ${Boost_LIBRARIES})
 add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/http/connect.cpp)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBURING} http worker)
-add_compile_options(-mavx2 -mfma)
 
 include(FetchContent)
 FetchContent_Declare(

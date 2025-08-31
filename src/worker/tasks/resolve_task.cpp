@@ -6,29 +6,22 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <string.h>
-
+#include <memory>
 
 int resolve_task(void *ptr)
 {
-    auto pair = reinterpret_cast<std::pair<std::string, std::string>*>(ptr);
+    auto pair = std::unique_ptr<std::pair<std::string, std::string>>(
+        static_cast<std::pair<std::string, std::string>*>(ptr));
     printf("resolving: %s:%s\n", pair->first.c_str(), pair->second.c_str());
 
     addrinfo* pai;
-    addrinfo hints;
+    addrinfo hints{};
 
-    memset(&hints, 0, sizeof(hints));
-    
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
-    hints.ai_protocol = 0;
-    hints.ai_canonname = NULL;
-    hints.ai_addr = NULL;
-    hints.ai_next = NULL;
-
 
     if (int ret = getaddrinfo(pair->first.c_str(), pair->second.c_str(), &hints, &pai); ret != 0) {
         fprintf(stderr, "Resolve error %s\n", gai_strerror(ret));
-        delete pair;
         return -1;
     }
 
@@ -38,12 +31,11 @@ int resolve_task(void *ptr)
             continue;
         }
         if (connect(sock_fd, info->ai_addr, info->ai_addrlen) == 0){
-            delete pair;
             return sock_fd;
         }
         close(sock_fd); 
     }
 
-    delete pair;
+    freeaddrinfo(pai);
     return -1;
 }

@@ -1,9 +1,9 @@
 #pragma once
 #include <pthread.h>
-#include <boost/lockfree/queue.hpp>
 #include <memory>
 #include <atomic>
 
+#include "queue/queue.h"
 
 struct result {
     int ret;
@@ -18,8 +18,8 @@ struct task{
 
 class Worker {
 public:
-    using submition_queue = boost::lockfree::queue<task>;
-    using complition_queue = boost::lockfree::queue<result>;
+    using submition_queue = queue<task>;
+    using complition_queue = queue<result>;
 
     void init(const std::shared_ptr<submition_queue>& subQueue, const std::shared_ptr<complition_queue>& comQueue, const std::function<int()>& notificator = nullptr);
     int run();

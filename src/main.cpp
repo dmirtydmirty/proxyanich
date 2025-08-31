@@ -21,13 +21,13 @@
 constexpr inline size_t MAX_CLIENT_COUNT = 50;
 constexpr inline size_t BUFFLEN = UINT16_MAX;
 
-typedef struct event_t
+struct event_t
 {
     int fd;
     unsigned type;
-} conn_info;
+};
 
-enum TYPE
+enum EVENT_TYPE
 {
     ACCEPT,
     READ,
@@ -40,8 +40,8 @@ struct client
     int conn_fd;
     unsigned status;
 };
-
-enum
+ 
+enum CLIENT_STATUS
 {
     NEW,
     RESOLVING,
@@ -68,6 +68,15 @@ int main(int argc, char **argv)
     auto sq = std::make_shared<Worker::submition_queue>(MAX_CLIENT_COUNT);
     auto cq = std::make_shared<Worker::complition_queue>(MAX_CLIENT_COUNT);
 
+    if (sq->init() != 0) {
+        perror("Submission queue initialization");
+        return -1;
+    }
+
+    if (cq->init() != 0) {
+        perror("Complition queue initialization");
+        return -1;
+    }
 
     Worker worker1;
     worker1.init(sq, cq, std::bind(&pipe_notificator, pipefd[1]));
@@ -104,9 +113,9 @@ int main(int argc, char **argv)
 
     listen(sock_fd, MAX_CLIENT_COUNT);
 
-    io_uring_params params;
+    io_uring_params params{};
     io_uring ring;
-    memset(&params, 0, sizeof(params));
+    // memset(&params, 0, sizeof(params));
 
     if (int ret = io_uring_queue_init_params(MAX_CLIENT_COUNT, &ring, &params); ret == -1)
     {
@@ -127,13 +136,12 @@ int main(int argc, char **argv)
 
     sqe = io_uring_get_sqe(&ring);
 
-    event_t work_event{.fd = pipefd[0], .type = WORK};
+    event_t worker_event{.fd = pipefd[0], .type = WORK};
 
     io_uring_prep_read(sqe, pipefd[0], trash, 1, 0);
 
-    io_uring_sqe_set_data(sqe, &work_event);
+    io_uring_sqe_set_data(sqe, &worker_event);
     
-
     while (true)
     {
         io_uring_cqe *cqe;
@@ -204,9 +212,8 @@ int main(int argc, char **argv)
 
                     task resolve{
                         .task_function = resolve_task, 
-                        .arg = new std::pair<std::string, std::string>(req.host, req.port), 
+                        .arg = new std::pair<std::string, std::string>(std::move(req.host), std::move(req.port)), 
                         .u64 = (uint64_t)conn_sock_fd};
-                    // need to delete pair
 
                     if (not sq->push(resolve)) {
                         
@@ -218,12 +225,6 @@ int main(int argc, char **argv)
                         clients.erase(conn_sock_fd);
 
                     }
-                    // need to add reading from pipe before loop
-
-                    // io_uring_sqe *sqe = io_uring_get_sqe(&ring);
-                    // event_t write_event{.fd = conn_sock_fd, .type = WRITE};
-                    // io_uring_prep_send(sqe, conn_sock_fd, send_buff, http_response(HTTP_OK, send_buff), 0);
-                    // io_uring_sqe_set_data(sqe, &write_event);
 
                     clients[conn_sock_fd].status = RESOLVING;
                 }
@@ -232,9 +233,8 @@ int main(int argc, char **argv)
         } 
         else if (ready_event->type == WORK) {
             result work_result;
-            while ( not cq->pop(work_result)) {
-                fprintf(stdout, "pop failed repop\n");
-            }
+            cq->pop(work_result);
+
             printf("resolve res:  %d\n", work_result.ret);
             
             int conn_sock_fd = work_result.u64;
