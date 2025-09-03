@@ -5,21 +5,10 @@
 
 #include "queue/queue.h"
 
-struct result {
-    int ret;
-    uint64_t u64;
-};
 
-struct task{
-    int (*task_function)(void*);
-    void* arg;
-    uint64_t u64;
-};
 
 class Worker {
 public:
-    using submition_queue = queue<task>;
-    using complition_queue = queue<result>;
 
     void init(const std::shared_ptr<submition_queue>& subQueue, const std::shared_ptr<complition_queue>& comQueue, const std::function<int()>& notificator = nullptr);
     int run();

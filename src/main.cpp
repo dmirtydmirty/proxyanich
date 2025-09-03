@@ -65,8 +65,8 @@ int main(int argc, char **argv)
         perror("Creation pipe error");
         return -1;
     }
-    auto sq = std::make_shared<Worker::submition_queue>(MAX_CLIENT_COUNT);
-    auto cq = std::make_shared<Worker::complition_queue>(MAX_CLIENT_COUNT);
+    auto sq = std::make_shared<submition_queue>(MAX_CLIENT_COUNT);
+    auto cq = std::make_shared<complition_queue>(MAX_CLIENT_COUNT);
 
     if (sq->init() != 0) {
         perror("Submission queue initialization");
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
                     clients.erase(conn_sock_fd);
                 } else {
 
-                    task resolve{
+                    task_t resolve{
                         .task_function = resolve_task, 
                         .arg = new std::pair<std::string, std::string>(std::move(req.host), std::move(req.port)), 
                         .u64 = (uint64_t)conn_sock_fd};
@@ -232,7 +232,7 @@ int main(int argc, char **argv)
             }
         } 
         else if (ready_event->type == WORK) {
-            result work_result;
+            result_t work_result;
             cq->pop(work_result);
 
             printf("resolve res:  %d\n", work_result.ret);

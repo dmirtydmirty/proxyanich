@@ -28,14 +28,14 @@ void* Worker::worker_function(void* ptr)
     auto current = reinterpret_cast<Worker*>(ptr);
     while(not current->m_stop){
 
-        task t;
-        current->m_subQueue->pop(t);
+        task_t task;
+        current->m_subQueue->pop(task);
 
-        result res{
-            .ret = t.task_function(t.arg), 
-            .u64 = t.u64
+        result_t result{
+            .ret = task.task_function(task.arg), 
+            .u64 = task.u64
         };
-        while (not current->m_comQueue->push(res)) {
+        while (not current->m_comQueue->push(result)) {
             fprintf(stdout, "push failed repush\n");
         }
         if (current->m_notificator){

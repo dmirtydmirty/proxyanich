@@ -23,9 +23,17 @@ add_library(worker
 target_include_directories(worker PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/worker)
 target_link_libraries(worker PUBLIC ${Boost_LIBRARIES})
 
-add_executable(${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp ${CMAKE_CURRENT_SOURCE_DIR}/src/http/connect.cpp)
+add_executable(${PROJECT_NAME} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/connect.cpp 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop/event_loop.cpp
+    )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${LIBURING} http worker)
+target_include_directories(${PROJECT_NAME} PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/worker
+    )
+
+target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBURING} http worker)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -39,3 +47,5 @@ FetchContent_MakeAvailable(googletest)
 
 add_executable(http_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_http.cpp)
 target_link_libraries(http_test http GTest::gtest_main)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
