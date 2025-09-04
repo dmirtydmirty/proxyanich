@@ -93,14 +93,17 @@ int event_loop::start()
 
     while (m_stop)
     {
-        io_uring_cqe* cqes;
-        int nr = io_uring_wait_cqes(&m_ring, &cqes, 1, nullptr, nullptr);
+        io_uring_cqe* cqe;
+        if (int ret = io_uring_wait_cqes(&m_ring, &cqe, 1, nullptr, nullptr); ret != 0) {
+            fprintf(stderr, "event_loop::start() io_uring_wait_cqes error %s", strerror(-ret));
+            continue;
+        }
 
-        io_uring_cqe *cqe;
         unsigned head;
+        unsigned cqe_cnt{};
 
-        io_uring_for_each_cqe(&m_ring, head, cqe){
-
+        io_uring_for_each_cqe(&m_ring, head, cqe)
+        {
             auto event = (event_t*)io_uring_cqe_get_data(cqe);
 
             switch (event->type)
@@ -112,10 +115,10 @@ int event_loop::start()
             default:
                 break;
             }
-
+            cqe_cnt++;
         }
 
-        io_uring_cq_advance(&m_ring, nr);
+        io_uring_cq_advance(&m_ring, cqe_cnt);
     }
     
 
