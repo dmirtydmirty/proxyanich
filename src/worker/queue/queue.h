@@ -1,3 +1,4 @@
+#pragma once
 #include <semaphore.h>
 #include <boost/lockfree/queue.hpp>
 
