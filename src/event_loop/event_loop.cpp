@@ -4,7 +4,9 @@
 
 #include "event_loop.h"
 #include "http_status_codes.h"
- 
+
+#define READ_BGID 0 
+
 event_loop::event_loop(std::shared_ptr<complition_queue> cq, std::shared_ptr<submition_queue> sq) :
     m_cq(cq),
     m_sq(sq)
@@ -69,7 +71,7 @@ int event_loop::init(size_t max_client_cnt)
     io_uring_buf_reg reg = {
         .ring_addr = (__u64)m_br,
         .ring_entries = (uint32_t)m_br_size,
-        .bgid = 0,
+        .bgid = READ_BGID,
 
     };
     
@@ -138,7 +140,7 @@ int event_loop::start()
                     io_uring_prep_read(sqe, conn_sock_fd, NULL, 4096, 0);
                     io_uring_sqe_set_data(sqe, (void*)read_event.u64);
                     sqe->flags |= IOSQE_BUFFER_SELECT;
-                    sqe->buf_group = 0;
+                    sqe->buf_group = READ_BGID;
                     io_uring_submit(&m_ring);
 
                     // sqe = io_uring_get_sqe(&m_ring);
@@ -163,10 +165,10 @@ int event_loop::start()
                     active_connections.erase(conn_sock_fd);
                 } else {
                     std::string msg{(char*)data, (__u64)bytes_read};
-                    fprintf(stdout, "received reauest: %s\n", msg.c_str());
+                    fprintf(stdout, "received request: %s\n", msg.c_str());
                 }
                 
-                io_uring_buf_ring_add(m_br, m_buffs + MAX_HTTP_HEADER_LEN * used_buf_id, MAX_HTTP_HEADER_LEN, used_buf_id, io_uring_buf_ring_mask(m_br_size), used_buf_id);
+                io_uring_buf_ring_add(m_br, data, MAX_HTTP_HEADER_LEN, used_buf_id, io_uring_buf_ring_mask(m_br_size), used_buf_id);
                 io_uring_buf_ring_advance(m_br, 1);
                 break;
             }
