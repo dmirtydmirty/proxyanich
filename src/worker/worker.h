@@ -5,8 +5,6 @@
 
 #include "queue/queue.h"
 
-
-
 class Worker {
 public:
 

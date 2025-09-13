@@ -1,3 +1,3 @@
 #pragma once
 
-int resolve_task(void* ptr);
+void resolve_task(void* ptr);

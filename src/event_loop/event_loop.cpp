@@ -4,8 +4,11 @@
 
 #include "event_loop.h"
 #include "http_status_codes.h"
+#include "http_status_text.h"
+#include "recv_buffers.h"
 
 #define READ_BGID 0 
+recv_buffers_t recv_buffers;
 
 event_loop::event_loop(std::shared_ptr<complition_queue> cq, std::shared_ptr<submition_queue> sq) :
     m_cq(cq),
@@ -14,6 +17,12 @@ event_loop::event_loop(std::shared_ptr<complition_queue> cq, std::shared_ptr<sub
 
 int event_loop::init(size_t max_client_cnt)
 {
+
+    if (recv_buffers.alloc(MAX_HTTP_HEADER_LEN, max_client_cnt) != 0) {
+        fprintf(stderr, "event_loop::init() allocation recv buffer failed\n");
+        return -1;
+    }
+
     m_br_size = max_client_cnt;
     m_sock_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -54,16 +63,12 @@ int event_loop::init(size_t max_client_cnt)
         fprintf(stderr, "event_loop::init() posix_memalign m_br error, %s\n", strerror(ret));
         return -1;
     }
-    if ( int ret = posix_memalign((void**)&m_buffs, 64, m_br_size * MAX_HTTP_HEADER_LEN); ret != 0) {
-        fprintf(stderr, "event_loop::init() posix_memalign m_buffs error, %s\n", strerror(ret));
-        return -1;
-    }
 
     io_uring_buf_ring_init(m_br);
 
     for (size_t i = 0; i < m_br_size; ++i) {
-        int mask =io_uring_buf_ring_mask(m_br_size);
-        io_uring_buf_ring_add(m_br, m_buffs + MAX_HTTP_HEADER_LEN * i, MAX_HTTP_HEADER_LEN, i, mask, i);
+        int mask = io_uring_buf_ring_mask(m_br_size);
+        io_uring_buf_ring_add(m_br, recv_buffers[i], MAX_HTTP_HEADER_LEN, i, mask, i);
     }
 
     io_uring_buf_ring_advance(m_br, m_br_size);
@@ -85,12 +90,12 @@ int event_loop::init(size_t max_client_cnt)
 
 
 void event_loop::deinit() {
-    free(m_buffs);
     free(m_br);
 }
 
-int event_loop::start()
+int event_loop::start(int pipe_fd)
 {
+    char trash[1];
     event_t accept_event{};
     accept_event.fd = m_sock_fd;
     accept_event.type = ACCEPT;
@@ -99,7 +104,17 @@ int event_loop::start()
 
     io_uring_prep_multishot_accept(sqe, m_sock_fd, nullptr, 0, 0);
     io_uring_sqe_set_data(sqe, (void*)accept_event.u64);
+
+    event_t worker_event{};
+    worker_event.fd = pipe_fd;
+    worker_event.type = WORKER;
+    
+    sqe = io_uring_get_sqe(&m_ring);
+
+    io_uring_prep_read(sqe, pipe_fd, trash, 1, 0);
+    io_uring_sqe_set_data(sqe, (void*)worker_event.u64);
     io_uring_submit(&m_ring);
+    
 
     std::unordered_map<int, int> forwarding_rules{};
     std::set<int> active_connections{};
@@ -136,7 +151,7 @@ int event_loop::start()
                     read_event.fd = m_sock_fd;
                     read_event.type = READ;
 
-                    io_uring_sqe *sqe = io_uring_get_sqe(&m_ring);
+                    sqe = io_uring_get_sqe(&m_ring);
                     io_uring_prep_read(sqe, conn_sock_fd, NULL, 4096, 0);
                     io_uring_sqe_set_data(sqe, (void*)read_event.u64);
                     sqe->flags |= IOSQE_BUFFER_SELECT;
@@ -156,7 +171,7 @@ int event_loop::start()
                 int conn_sock_fd = event.fd;
                 const int bytes_read = event_result;
                 int used_buf_id = cqe->flags >> IORING_CQE_BUFFER_SHIFT;
-                uint8_t *data = m_buffs + MAX_HTTP_HEADER_LEN * used_buf_id; 
+                uint8_t *data = recv_buffers[used_buf_id]; 
                 if (bytes_read == 0) {
                     fprintf(stdout, "client has been disconnated\n");
                     active_connections.erase(conn_sock_fd);
@@ -166,10 +181,38 @@ int event_loop::start()
                 } else {
                     std::string msg{(char*)data, (__u64)bytes_read};
                     fprintf(stdout, "received request: %s\n", msg.c_str());
+
+                    auto* queue_entry = new queue_entry_t;
+
+                    queue_entry->buf_id = used_buf_id;
+                    queue_entry->data_len = bytes_read;
+
+                    m_sq->push(queue_entry);
                 }
                 
-                io_uring_buf_ring_add(m_br, data, MAX_HTTP_HEADER_LEN, used_buf_id, io_uring_buf_ring_mask(m_br_size), used_buf_id);
+                break;
+            }
+            case WORKER: {
+                
+                queue_entry_t* queue_entry;
+                m_cq->pop(queue_entry);
+                
+                auto used_buf_id = queue_entry->buf_id;
+
+                fprintf(stdout, "resolve result %d %s\n", queue_entry->return_value, http_status_text::text(queue_entry->return_code));
+
+                
+                delete queue_entry;
+
+                io_uring_buf_ring_add(m_br, recv_buffers[used_buf_id], MAX_HTTP_HEADER_LEN, used_buf_id, io_uring_buf_ring_mask(m_br_size), used_buf_id);
                 io_uring_buf_ring_advance(m_br, 1);
+
+
+                sqe = io_uring_get_sqe(&m_ring);
+
+                io_uring_prep_read(sqe, pipe_fd, trash, 1, 0);
+                io_uring_sqe_set_data(sqe, (void*)worker_event.u64);
+                io_uring_submit(&m_ring);
                 break;
             }
             default:

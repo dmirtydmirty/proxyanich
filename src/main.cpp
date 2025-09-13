@@ -269,6 +269,17 @@ int main(int argc, char **argv)
     auto sq = std::make_shared<submition_queue>(MAX_CLIENT_COUNT);
     auto cq = std::make_shared<complition_queue>(MAX_CLIENT_COUNT);
 
+
+    int pipefd[2];
+    if (pipe2(pipefd, O_DIRECT) == -1) {
+        perror("Creation pipe error");
+        return -1;
+    }
+
+    Worker worker1;
+    worker1.init(sq, cq, std::bind(&pipe_notificator, pipefd[1]));
+    worker1.run();
+
     event_loop el(cq, sq);
     if (el.init(MAX_CLIENT_COUNT) != 0)
     {
@@ -276,6 +287,6 @@ int main(int argc, char **argv)
         el.deinit();
         return -1;
     }
-    el.start();
+    el.start(pipefd[0]);
     el.stop();
 }

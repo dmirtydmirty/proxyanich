@@ -4,7 +4,9 @@
 
 #include "http_status_codes.h"
 
-const char *regex_str = "^CONNECT\\s+(.+):(\\d+)\\s+HTTP\\/(\\d.\\d)\\r?\\nHost: \\1:\\2\\r?\\n";
+// const char *regex_str = "^CONNECT\\s+(.+):(\\d+)\\s+HTTP\\/(\\d.\\d)\\r?\\nHost: \\1:\\2\\r?\\n";
+const char *regex_str = "^CONNECT\\s+(.+):(\\d+)\\s+HTTP\\/(\\d.\\d)";
+
 
 const std::regex connect_regex(
     regex_str,

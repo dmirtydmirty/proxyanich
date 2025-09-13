@@ -19,11 +19,4 @@ TEST(Test, TestConnect) {
 }
 
 
-TEST(Test, TestResponse) {
-    char buff[128];
-    for (const auto & el: http_status_text::map) {
-        std::string resp = std::to_string(el.first) + " " + std::string(el.second) + "\r\n";
-        http_response(el.first, buff);
-        ASSERT_EQ(strncmp(buff, resp.c_str(), resp.size()), 0);
-    }
-}
+

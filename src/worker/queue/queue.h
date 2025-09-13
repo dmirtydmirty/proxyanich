@@ -14,6 +14,14 @@ struct task_t {
     uint64_t u64;
 };
 
+
+struct queue_entry_t {
+    size_t buf_id;
+    size_t data_len;
+    int return_value;
+    uint16_t return_code;
+};
+
 template <typename value_type>
 class queue {
     public:
@@ -44,5 +52,5 @@ class queue {
     sem_t m_sem{};
 };
 
-using submition_queue = queue<task_t>;
-using complition_queue = queue<result_t>;
+using submition_queue = queue<queue_entry_t*>;
+using complition_queue = queue<queue_entry_t*>;

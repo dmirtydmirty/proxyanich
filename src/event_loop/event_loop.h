@@ -23,7 +23,7 @@ enum EVENT_TYPE: uint8_t
     ACCEPT,
     READ,
     WRITE,
-    WORK,
+    WORKER,
     TIMEOUT,
 };
 
@@ -48,7 +48,7 @@ public:
 
     void deinit();
     
-    int start();
+    int start(int pipe_fd);
     
     int stop();
    
@@ -59,7 +59,6 @@ private:
     std::shared_ptr<complition_queue> m_cq{};
     std::shared_ptr<submition_queue> m_sq{};
     io_uring m_ring{};
-    uint8_t* m_buffs{nullptr};
     io_uring_buf_ring* m_br{nullptr};
     int m_pipefds[2];
     int m_sock_fd{};

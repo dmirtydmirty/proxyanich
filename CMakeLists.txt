@@ -10,8 +10,17 @@ add_library(http
 )
 target_include_directories(http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/http)
 
+
+add_library(recv_buffers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers/recv_buffers.cpp
+)
+
+target_include_directories(recv_buffers PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers
+)
+
 if(POLICY CMP0167)
-  cmake_policy(SET CMP0167 NEW)
+    cmake_policy(SET CMP0167 NEW)
 endif()
 
 find_package(Boost REQUIRED)
@@ -21,7 +30,7 @@ add_library(worker
     ${CMAKE_CURRENT_SOURCE_DIR}/src/worker/tasks/resolve_task.cpp
 )
 target_include_directories(worker PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/worker)
-target_link_libraries(worker PUBLIC ${Boost_LIBRARIES})
+target_link_libraries(worker PUBLIC ${Boost_LIBRARIES} recv_buffers http)
 
 add_executable(${PROJECT_NAME} 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
@@ -30,11 +39,11 @@ add_executable(${PROJECT_NAME}
     )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/worker
     ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop
-    )
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers
+)
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBURING} http worker)
+target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBURING} http worker recv_buffers)
 
 include(FetchContent)
 FetchContent_Declare(

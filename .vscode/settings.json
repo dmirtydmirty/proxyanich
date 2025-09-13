@@ -70,7 +70,8 @@
         "stop_token": "cpp",
         "thread": "cpp",
         "bitset": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "cfenv": "cpp"
     },
     
     "cmake.configureOnOpen": true,
