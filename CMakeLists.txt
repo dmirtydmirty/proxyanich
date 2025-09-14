@@ -59,3 +59,10 @@ add_executable(http_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_http.cpp)
 target_link_libraries(http_test http GTest::gtest_main)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+
+add_executable(mock ${CMAKE_CURRENT_SOURCE_DIR}/mock/main.cpp)
+
+find_package(CURL REQUIRED)
+
+target_link_libraries(mock PRIVATE ${CURL_LIBRARIES})
