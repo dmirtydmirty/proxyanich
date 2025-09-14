@@ -16,6 +16,7 @@ struct task_t {
 
 
 struct queue_entry_t {
+    uint64_t u64;
     size_t buf_id;
     size_t data_len;
     int return_value;

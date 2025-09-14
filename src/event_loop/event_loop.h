@@ -3,6 +3,7 @@
 #include <unordered_map>
 #include <memory>
 #include <atomic>
+#include <set>
 
 #include "queue/queue.h"
 
@@ -54,7 +55,12 @@ public:
    
 private: 
 
-    int handle_accept();
+    int handle_accept(int32_t event_result);
+    int handle_read(int32_t event_result, int conn_sock_fd, int used_buf_id);
+    int handle_worker_event();
+
+    std::set<int> m_active_connections{};
+    std::unordered_map<int, int> m_forwarding_rules{};
 
     std::shared_ptr<complition_queue> m_cq{};
     std::shared_ptr<submition_queue> m_sq{};
