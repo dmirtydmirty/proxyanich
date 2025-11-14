@@ -41,6 +41,8 @@ add_executable(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop
     ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
+
 )
 
 target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBURING} http worker recv_buffers)
@@ -61,8 +63,8 @@ target_link_libraries(http_test http GTest::gtest_main)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
-add_executable(mock ${CMAKE_CURRENT_SOURCE_DIR}/mock/main.cpp)
+# add_executable(mock ${CMAKE_CURRENT_SOURCE_DIR}/mock/main.cpp)
 
-find_package(CURL REQUIRED)
+# find_package(CURL REQUIRED)
 
-target_link_libraries(mock PRIVATE ${CURL_LIBRARIES})
+# target_link_libraries(mock PRIVATE ${CURL_LIBRARIES})

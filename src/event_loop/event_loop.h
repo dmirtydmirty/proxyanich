@@ -6,6 +6,7 @@
 #include <set>
 
 #include "queue/queue.h"
+#include "indexed_list.h"
 
 struct event_t
 {
@@ -19,13 +20,25 @@ struct event_t
     };
 };
 
-enum EVENT_TYPE: uint8_t
+enum event_type: uint8_t
 {
     ACCEPT,
     READ,
     WRITE,
     WORKER,
     TIMEOUT,
+    RECV,
+    SEND,
+};
+
+struct event_object
+{
+    void (*callback)(event_object& event);
+    uint64_t u64;
+    size_t buff_idx;
+    int rv;
+    int fd;
+    event_type type;
 };
 
 struct client
@@ -59,6 +72,9 @@ private:
     int handle_read(int32_t event_result, int conn_sock_fd, int used_buf_id);
     int handle_worker_event();
 
+    // int prep_accept(int sock_fd,  void (*callback)(event_object& event));
+    // int perp_read()
+    int prep_event(int sock_fd,  void (*callback)(event_object& event));
     std::set<int> m_active_connections{};
     std::unordered_map<int, int> m_forwarding_rules{};
 

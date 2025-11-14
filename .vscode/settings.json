@@ -79,6 +79,7 @@
     "cmake.configureArgs": [
         "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
     ],
-    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json"
+    "C_Cpp.default.compileCommands": "${workspaceFolder}/build/compile_commands.json",
+    "C_Cpp.default.compilerPath": "/usr/bin/g++-13"
 
 }
