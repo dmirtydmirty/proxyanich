@@ -10,7 +10,6 @@ add_library(http
 )
 target_include_directories(http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/http)
 
-
 add_library(recv_buffers
     ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers/recv_buffers.cpp
 )
@@ -32,20 +31,25 @@ add_library(worker
 target_include_directories(worker PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/worker)
 target_link_libraries(worker PUBLIC ${Boost_LIBRARIES} recv_buffers http)
 
-add_executable(${PROJECT_NAME} 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/connect.cpp 
+
+add_library(indexed_list INTERFACE)
+target_include_directories(indexed_list INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/indexed_list/)
+
+add_library(event_loop 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop/event_loop.cpp
-    )
-
-target_include_directories(${PROJECT_NAME} PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/common
-
 )
 
-target_link_libraries(${PROJECT_NAME} PUBLIC ${LIBURING} http worker recv_buffers)
+target_include_directories(event_loop PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop
+)
+
+target_link_libraries(event_loop PUBLIC ${LIBURING} recv_buffers indexed_list worker)
+
+add_executable(${PROJECT_NAME} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+)
+
+target_link_libraries(${PROJECT_NAME} http worker event_loop indexed_list)
 
 include(FetchContent)
 FetchContent_Declare(

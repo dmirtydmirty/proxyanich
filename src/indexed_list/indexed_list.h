@@ -17,8 +17,6 @@ struct node
 };
 
 
-int sz = sizeof(node<int>);
-
 template<typename T>
 struct indexed_list
 {
