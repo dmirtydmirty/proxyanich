@@ -64,6 +64,9 @@ FetchContent_MakeAvailable(googletest)
 add_executable(http_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_http.cpp)
 target_link_libraries(http_test http GTest::gtest_main)
 
+add_executable(indexed_list_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_indexed_list.cpp)
+target_link_libraries(indexed_list_test indexed_list GTest::gtest_main)
+
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 

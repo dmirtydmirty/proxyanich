@@ -5,12 +5,12 @@
 template<typename T>
 struct node 
 {
-    size_t idx:24;
-    size_t used:8;
-    T* next = nullptr;
-    T* prev = nullptr;
-    T value;
-    node(T* n, T* p):
+    size_t idx:63 = 0;
+    size_t used:1 = 0;
+    node* next = nullptr;
+    node* prev = nullptr;
+    T value = {};
+    node(node* n, node* p):
         next(n),
         prev(p)
     {}
@@ -24,11 +24,11 @@ struct indexed_list
     
     int init(size_t size) {
 
-        int rc = posix_memalign((void**)&mem_pool_, 64, size * sizeof(node_t));
+        int rc = posix_memalign((void**)&array_, 64, size * sizeof(node_t));
         if (rc == 0) {
             for (size_t i = 0; i < size; ++i){
-                node_t* node = &mem_pool_[i];
-                insert(end(&free_root, node));
+                node_t* node = &array_[i];
+                insert(end(&free_root), node);
                 node->idx = i;
                 node->used = 0;
             }
@@ -39,6 +39,7 @@ struct indexed_list
         int rc = -ENOMEM;
         if (begin(&free_root) != end(&free_root)) {
             node_t* node = begin(&free_root);
+            erase(node);
             node->value = val;
             node->used = 1;
             insert(end(&used_root), node);
@@ -49,19 +50,20 @@ struct indexed_list
 
     int deallocate(size_t idx) {
         int rc = -ENOENT;
-        node_t* node = &mem_pool_[idx];
+        node_t* node = &array_[idx];
         if (node->used == 1) {
             erase(node);
             node->used = 0;
             rc = 0;
+            insert(end(&free_root), node);
         }
         return rc;
     }
 
     T* operator[](size_t idx) {
         T* rv = nullptr;
-        if (idx < size_ and mem_pool_[idx].used) {
-            rv = &mem_pool_[idx].value;
+        if (idx < size_ and array_[idx].used) {
+            rv = &array_[idx].value;
         }
         return rv;
     }
@@ -90,11 +92,14 @@ struct indexed_list
         it->next = it->prev = nullptr;
     }
 
+    ~indexed_list() {
+        free(array_);
+    }
 private:
     node_t free_root = node_t(&free_root, &free_root);
     node_t used_root = node_t(&used_root, &used_root);;
 
-    node_t* mem_pool_ = nullptr;
+    node_t* array_ = nullptr;
     size_t size_ = 0;
 
 };
