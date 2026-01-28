@@ -16,7 +16,7 @@ int recv_buffers_t::alloc(size_t bufs_len, size_t bufs_cnt)
     return 0;
 }
 
-uint8_t* recv_buffers_t::operator[](size_t buf_idx)
+char* recv_buffers_t::operator[](size_t buf_idx)
 {
     return m_bufs + buf_idx * m_bufs_len;
 }

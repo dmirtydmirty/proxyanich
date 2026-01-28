@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include <string>
-#include <indexed_list.h>
+#include "indexed_list/indexed_list.h"
 
 
 TEST(Test, TestConnect) {

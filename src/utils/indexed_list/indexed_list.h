@@ -9,7 +9,9 @@ struct node
     size_t used:1 = 0;
     node* next = nullptr;
     node* prev = nullptr;
+    void* self = this;
     T value = {};
+    node() {}
     node(node* n, node* p):
         next(n),
         prev(p)
@@ -24,16 +26,16 @@ struct indexed_list
     
     int init(size_t size) {
 
-        int rc = posix_memalign((void**)&array_, 64, size * sizeof(node_t));
-        if (rc == 0) {
-            for (size_t i = 0; i < size; ++i){
-                node_t* node = &array_[i];
-                insert(end(&free_root), node);
-                node->idx = i;
-                node->used = 0;
-            }
+        array_ = new node_t[size];
+        size_ = size;
+        for (size_t i = 0; i < size; ++i){
+            node_t* node = &array_[i];
+            insert(end(&free_root), node);
+            node->idx = i;
+            node->used = 0;
         }
-        return rc;
+        
+        return 0;
     }
     int64_t allocate(const T& val){
         int rc = -ENOMEM;

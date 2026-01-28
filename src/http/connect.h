@@ -9,4 +9,4 @@ struct connect_request {
     std::string port{};
 };
 
-int parse_connect(std::string req, connect_request& req_struct);
+int parse_connect(const std::string_view& req, connect_request& req_struct);

@@ -12,11 +12,12 @@ const std::regex connect_regex(
     regex_str,
     std::regex_constants::ECMAScript);
 
-int parse_connect(std::string req, connect_request &req_struct)
+int parse_connect(const std::string_view& req, connect_request &req_struct)
 {
 
     std::smatch matches;
-    if (std::regex_search(req, matches, connect_regex))
+    std::string req_str(req);
+    if (std::regex_search(req_str, matches, connect_regex))
     {
         req_struct.host = matches[1];
         if (matches[2].matched)

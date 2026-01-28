@@ -4,22 +4,38 @@
 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <liburing.h>
+#include <signal.h>
 #include <assert.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <unordered_map>
 #include <memory>
 
 #include "connect.h"
 #include "response.h"
 #include "http_status_codes.h"
-#include "worker.h"
-#include "tasks/resolve_task.h"
-#include "event_loop.h"
+#include "event_loop/event_loop.h"
+#include "config.h"
+#include "http_status_text.h"
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 constexpr inline size_t MAX_CLIENT_COUNT = 1 << 10;
 constexpr inline size_t BUFFLEN = UINT16_MAX;
+
+namespace global {
+    extern config_t config;
+    volatile bool proceed = true;
+
+};
+
+void int_handler(int) {
+    global::proceed = false;
+    spdlog::debug("interuption");
+}
 
 // struct event_t
 // {
@@ -48,17 +64,126 @@ constexpr inline size_t BUFFLEN = UINT16_MAX;
 //     AUTHORIZED
 // };
 
-int pipe_notificator(int fd){
-    int ret = write(fd, "\0", 1);
-    if (ret == -1){
-        perror("notificator: writing to pipe error\n");
+
+int resolve_dns(const connect_request& rq ) {
+    spdlog::debug("resolving: {}:{}", rq.host.c_str(), rq.port.c_str());
+
+    addrinfo* pai;
+    addrinfo hints{};
+
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+
+    if (int ret = getaddrinfo(rq.host.c_str(), rq.port.c_str(), &hints, &pai); ret != 0) {
+        spdlog::error("Resolve error {}", gai_strerror(ret));
+        return -HTTP_BAD_REQUEST;
     }
-    return ret;
+
+    for (addrinfo* info = pai; info != nullptr; info = info->ai_next) {
+        int sock_fd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
+        if (sock_fd == -1) {
+            continue;
+        }
+        if (connect(sock_fd, info->ai_addr, info->ai_addrlen) == 0){
+            auto* addr = (sockaddr_in*)info->ai_addr;
+            spdlog::info("Connection with {}:{} established: addr: {}", 
+                rq.host.c_str(), rq.port.c_str(), inet_ntoa(addr->sin_addr));
+            freeaddrinfo(pai);
+            return sock_fd;
+        }
+        close(sock_fd); 
+    }
+    return -HTTP_SERVER_UNAVALIBLE;
 }
 
+int init_logger(){
+    if (global::config.log_file) {
+        spdlog::set_default_logger(spdlog::basic_logger_mt("logger", "logs/log.log"));
+    }
+    spdlog::set_level(spdlog::level::trace);
+    spdlog::set_error_handler([](const std::string& msg) {
+        fprintf(stderr, "logger err %s \n", msg.c_str());
+    });
+    return 0;
+}
+
+void close_socket(event_object& ev){
+    close(ev.fd);
+}
+
+void handle_http_connect(event_object& ev){
+
+    size_t bytes_recv = ev.rv;
+    size_t bid = ev.flags >> IORING_CQE_BUFFER_SHIFT;
+    auto msg = std::string_view(ev.el->buffs[bid], bytes_recv);  
+    spdlog::debug("Received {}", msg.data());
+
+    connect_request rq;
+
+    if (int code = parse_connect(msg, rq); code != HTTP_OK) {
+        const char* resp = http_status_text::text(code);
+        ev.el->prep_send(ev.fd, resp, strlen(resp), close_socket);
+    } else {
+        int rslv = resolve_dns(rq);
+        if (rslv < 0) {
+            const char* resp = http_status_text::text(-rslv);
+            ev.el->prep_send(ev.fd, resp, strlen(resp), close_socket);
+        } else {
+            spdlog::info("connected");
+            const char* resp = http_status_text::text(HTTP_OK);
+            ev.el->prep_send(ev.fd, resp, strlen(resp), close_socket);
+            close(rslv);
+        }
+    }
+    ev.el->free_buf(bid);
+}
+
+void handle_connection(event_object& ev) {
+    int sock_fd = ev.rv;
+
+    sockaddr_in saddr;
+    socklen_t saddrlen = sizeof(saddr);
+    getsockname(sock_fd, (sockaddr*)&saddr, &saddrlen);
+    spdlog::debug("new connaction from {}:{}", inet_ntoa(saddr.sin_addr), ntohs(saddr.sin_port));
+
+
+    ev.el->perp_recv(sock_fd, handle_http_connect);    
+}
+
+int setup_tcp_socket(uint16_t port, int backlog) {
+    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_fd == -1) {
+        spdlog::error("creation socket failure: {}", strerror(errno));
+        return -1;
+    }
+
+    const int optval = 1;
+    if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) == -1) {
+        spdlog::error("setsockopt failure: {}", strerror(errno));
+        return -1;
+    }
+
+    sockaddr_in saddr{
+        .sin_port = htons(port), 
+        .sin_addr = INADDR_ANY
+    };
+
+    if (bind(sock_fd, (sockaddr*)&saddr, sizeof(saddr)) == -1) {
+        spdlog::error("socket binding failure: {}", strerror(errno));
+        return -1;
+    }
+
+    if (listen(sock_fd, backlog) == -1) {
+        spdlog::error("socket listen failure: {}", strerror(errno));
+        return -1;
+    }
+    return sock_fd;
+}
 
 int main(int argc, char **argv)
 {
+    init_logger();
+    spdlog::debug("starting server at, {}()!", __func__);
     // char trash[1];
     // int pipefd[2];
     // if (pipe2(pipefd, O_DIRECT) == -1) {
@@ -266,27 +391,48 @@ int main(int argc, char **argv)
 
     //     io_uring_cqe_seen(&ring, cqe);
     // }
-    auto sq = std::make_shared<submition_queue>(MAX_CLIENT_COUNT);
-    auto cq = std::make_shared<complition_queue>(MAX_CLIENT_COUNT);
+    // auto sq = std::make_shared<submition_queue>(MAX_CLIENT_COUNT);
+    // auto cq = std::make_shared<complition_queue>(MAX_CLIENT_COUNT);
 
 
-    int pipefd[2];
-    if (pipe2(pipefd, O_DIRECT) == -1) {
-        perror("Creation pipe error");
-        return -1;
-    }
+    // int pipefd[2];
+    // if (pipe2(pipefd, O_DIRECT) == -1) {
+    //     spdlog::critical("Creation pipe error: {}!", strerror(errno));
+    //     return -1;
+    // }
 
-    Worker worker1;
-    worker1.init(sq, cq, std::bind(&pipe_notificator, pipefd[1]));
-    worker1.run();
+    // Worker worker1;
+    // worker1.init(sq, cq, std::bind(&pipe_notificator, pipefd[1]));
+    // worker1.run();
 
-    event_loop el(cq, sq);
-    if (el.init(MAX_CLIENT_COUNT) != 0)
+    signal(SIGINT, int_handler);
+
+    event_loop el;
+    if (el.init(8192, 128) != 0)
     {
-        fprintf(stderr, "main() unable to init event loop\n");
+        spdlog::critical("{}(): initialization event loop failed", __func__);
         el.deinit();
         return -1;
     }
-    el.start(pipefd[0]);
-    el.stop();
+
+    int sock_fd = setup_tcp_socket(15001, 10);
+
+    if (sock_fd == -1) {
+        spdlog::critical("creation socket failure");
+        return -1;
+    }
+
+    el.prep_accept(sock_fd, handle_connection);
+
+    while (global::proceed)
+    {
+        el.process();
+    }
+    
+
+    if (sock_fd >0) {
+        close(sock_fd);
+    }
+    // el.start(pipefd[0]);
+    // el.stop();
 }

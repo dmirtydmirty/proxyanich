@@ -2,6 +2,15 @@ cmake_minimum_required(VERSION 3.22)
 set(CMAKE_CXX_STANDARD 20)
 project(https_simple_proxy)
 
+set(3D_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3dparty)
+
+if (NOT EXISTS ${3D_PARTY_DIR})
+    message(FATAL_ERROR "no 3dparty directory found exit...")
+endif()
+
+option(SPDLOG_NO_EXCEPTIONS "Compile with -fno-exceptions. Call abort() on any spdlog exceptions" ON)
+add_subdirectory(${3D_PARTY_DIR}/spdlog)
+
 find_library(LIBURING uring)
 
 add_library(http 
@@ -10,13 +19,13 @@ add_library(http
 )
 target_include_directories(http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/http)
 
-add_library(recv_buffers
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers/recv_buffers.cpp
-)
+# add_library(recv_buffers
+#     ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers/recv_buffers.cpp
+# )
 
-target_include_directories(recv_buffers PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers
-)
+# target_include_directories(recv_buffers PUBLIC
+#     ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers
+# )
 
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
@@ -24,32 +33,49 @@ endif()
 
 find_package(Boost REQUIRED)
 
-add_library(worker
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/worker/worker.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/worker/tasks/resolve_task.cpp
+# add_library(worker
+#     ${CMAKE_CURRENT_SOURCE_DIR}/src/worker/worker.cpp
+#     ${CMAKE_CURRENT_SOURCE_DIR}/src/worker/tasks/resolve_task.cpp
+# )
+# target_include_directories(worker PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/worker)
+# target_link_libraries(worker PUBLIC ${Boost_LIBRARIES} recv_buffers http)
+
+
+add_library(utils 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/thread/thread.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/recv_buffers/recv_buffers.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/event_loop/event_loop.cpp
 )
-target_include_directories(worker PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/worker)
-target_link_libraries(worker PUBLIC ${Boost_LIBRARIES} recv_buffers http)
-
-
-add_library(indexed_list INTERFACE)
-target_include_directories(indexed_list INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/src/indexed_list/)
-
-add_library(event_loop 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop/event_loop.cpp
+    
+target_include_directories(utils PUBLIC 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/
 )
 
-target_include_directories(event_loop PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop
+target_link_libraries(utils PUBLIC spdlog::spdlog ${LIBURING})
+
+# add_library(event_loop 
+#     ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop/event_loop.cpp
+# )
+
+# target_include_directories(event_loop PUBLIC
+#     ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop
+# )
+
+# target_link_libraries(event_loop PUBLIC ${LIBURING} recv_buffers utils worker spdlog::spdlog)
+
+add_library(config 
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config/config.cpp
 )
 
-target_link_libraries(event_loop PUBLIC ${LIBURING} recv_buffers indexed_list worker)
+target_include_directories(config PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/config
+)
 
 add_executable(${PROJECT_NAME} 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} http worker event_loop indexed_list)
+target_link_libraries(${PROJECT_NAME} http utils config)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -65,7 +91,7 @@ add_executable(http_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_http.cpp)
 target_link_libraries(http_test http GTest::gtest_main)
 
 add_executable(indexed_list_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_indexed_list.cpp)
-target_link_libraries(indexed_list_test indexed_list GTest::gtest_main)
+target_link_libraries(indexed_list_test utils GTest::gtest_main)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
