@@ -13,6 +13,9 @@
 #include <netdb.h>
 #include <unordered_map>
 #include <memory>
+#include <boost/lockfree/spsc_queue.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 
 #include "connect.h"
 #include "response.h"
@@ -20,8 +23,8 @@
 #include "event_loop/event_loop.h"
 #include "config.h"
 #include "http_status_text.h"
-#include <spdlog/spdlog.h>
-#include <spdlog/sinks/basic_file_sink.h>
+#include "itc/itc.h"
+#include "dp_thread.h"
 
 constexpr inline size_t MAX_CLIENT_COUNT = 1 << 10;
 constexpr inline size_t BUFFLEN = UINT16_MAX;
@@ -64,6 +67,8 @@ void int_handler(int) {
 //     AUTHORIZED
 // };
 
+boost::lockfree::spsc_queue<int, boost::lockfree::capacity<10>> DP_thread_queue;
+boost::lockfree::spsc_queue<int, boost::lockfree::capacity<10>> CP_thread_queue;
 
 int resolve_dns(const connect_request& rq ) {
     spdlog::debug("resolving: {}:{}", rq.host.c_str(), rq.port.c_str());

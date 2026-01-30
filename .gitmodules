@@ -1,3 +1,12 @@
+[submodule "3dparty/boost"]
+	path = 3dparty/boost
+	url = https://github.com/boostorg/boost.git
+	branch = boost-1.90.0
 [submodule "3dparty/spdlog"]
 	path = 3dparty/spdlog
-	url = https://github.com/gabime/spdlog/tree/v1.17.0?ysclid=mkxx129zd1544103443
+	url = https://github.com/gabime/spdlog.git
+	branch = v1.17.0
+[submodule "3dparty/liburing"]
+	path = 3dparty/liburing
+	url = https://github.com/axboe/liburing.git
+	branch = liburing-2.13

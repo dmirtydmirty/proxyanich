@@ -10,8 +10,24 @@ endif()
 
 option(SPDLOG_NO_EXCEPTIONS "Compile with -fno-exceptions. Call abort() on any spdlog exceptions" ON)
 add_subdirectory(${3D_PARTY_DIR}/spdlog)
+add_subdirectory(${3D_PARTY_DIR}/boost)
 
-find_library(LIBURING uring)
+
+set(LIBURING_LIB "${3D_PARTY_DIR}/liburing/src/liburing.a")
+set(LIBURING_INCLUDE "${3D_PARTY_DIR}/liburing/src/include")
+
+add_custom_target(liburing_make
+    COMMAND make -C ${3D_PARTY_DIR}/liburing -j6
+    COMMAND echo "Liburing built"
+)
+
+add_library(liburing STATIC IMPORTED)
+add_dependencies(liburing liburing_make)
+
+set_target_properties(liburing PROPERTIES
+    IMPORTED_LOCATION ${LIBURING_LIB}
+    INTERFACE_INCLUDE_DIRECTORIES ${LIBURING_INCLUDE}
+)
 
 add_library(http 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/http/connect.cpp
@@ -19,27 +35,9 @@ add_library(http
 )
 target_include_directories(http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/http)
 
-# add_library(recv_buffers
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers/recv_buffers.cpp
-# )
-
-# target_include_directories(recv_buffers PUBLIC
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/recv_buffers
-# )
-
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
 endif()
-
-find_package(Boost REQUIRED)
-
-# add_library(worker
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/worker/worker.cpp
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/worker/tasks/resolve_task.cpp
-# )
-# target_include_directories(worker PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/worker)
-# target_link_libraries(worker PUBLIC ${Boost_LIBRARIES} recv_buffers http)
-
 
 add_library(utils 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/thread/thread.cpp
@@ -51,17 +49,7 @@ target_include_directories(utils PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/
 )
 
-target_link_libraries(utils PUBLIC spdlog::spdlog ${LIBURING})
-
-# add_library(event_loop 
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop/event_loop.cpp
-# )
-
-# target_include_directories(event_loop PUBLIC
-#     ${CMAKE_CURRENT_SOURCE_DIR}/src/event_loop
-# )
-
-# target_link_libraries(event_loop PUBLIC ${LIBURING} recv_buffers utils worker spdlog::spdlog)
+target_link_libraries(utils PUBLIC spdlog::spdlog liburing)
 
 add_library(config 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/config/config.cpp
@@ -73,9 +61,14 @@ target_include_directories(config PUBLIC
 
 add_executable(${PROJECT_NAME} 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/dp_thread/dp_thread.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} http utils config)
+target_include_directories(${PROJECT_NAME} PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/dp_thread
+)
+
+target_link_libraries(${PROJECT_NAME} http utils config boost_lockfree)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -94,10 +87,3 @@ add_executable(indexed_list_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_indexed_
 target_link_libraries(indexed_list_test utils GTest::gtest_main)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-
-# add_executable(mock ${CMAKE_CURRENT_SOURCE_DIR}/mock/main.cpp)
-
-# find_package(CURL REQUIRED)
-
-# target_link_libraries(mock PRIVATE ${CURL_LIBRARIES})

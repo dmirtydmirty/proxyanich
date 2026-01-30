@@ -252,7 +252,7 @@ int event_loop::handle_worker_event()
 
 int event_loop::prep_accept(int sock_fd, void (*callback)(event_object &event))
 {   
-    event_object event{.callback = callback, .el = this, .fd = sock_fd, .type = ACCEPT};
+    event_object event{.callback = callback, .el = this, .fd = sock_fd, .type = event_type::ACCEPT};
     
     auto* sqe = io_uring_get_sqe(&m_ring);
     auto idx = events.allocate(event);
@@ -266,7 +266,7 @@ int event_loop::prep_accept(int sock_fd, void (*callback)(event_object &event))
 
 int event_loop::perp_recv(int sock_fd, void (*callback)(event_object &event))
 {
-    event_object event{.callback = callback, .el = this, .fd = sock_fd, .type = READ};
+    event_object event{.callback = callback, .el = this, .fd = sock_fd, .type = event_type::READ};
     auto idx = events.allocate(event);
 
     auto* sqe = io_uring_get_sqe(&m_ring);
@@ -280,7 +280,7 @@ int event_loop::perp_recv(int sock_fd, void (*callback)(event_object &event))
 
 int event_loop::prep_send(int sock_fd, size_t buf_id, size_t len, void (*callback)(event_object &event))
 {
-    event_object event{.callback = callback, .el = this, .u64 = buf_id, .fd = sock_fd, .type = WRITE};
+    event_object event{.callback = callback, .el = this, .u64 = buf_id, .fd = sock_fd, .type = event_type::WRITE};
     auto idx = events.allocate(event);
 
     auto* sqe = io_uring_get_sqe(&m_ring);
@@ -293,7 +293,7 @@ int event_loop::prep_send(int sock_fd, size_t buf_id, size_t len, void (*callbac
 
 int event_loop::prep_send(int sock_fd, const char *data, size_t len, void (*callback)(event_object &event))
 {
-    event_object event{.callback = callback, .el = this, .fd = sock_fd, .type = WRITE};
+    event_object event{.callback = callback, .el = this, .fd = sock_fd, .type = event_type::WRITE};
     auto idx = events.allocate(event);
 
     auto* sqe = io_uring_get_sqe(&m_ring);

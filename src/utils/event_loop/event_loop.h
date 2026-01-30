@@ -23,7 +23,7 @@ struct event_t
     };
 };
 
-enum event_type: uint8_t
+enum class event_type: uint8_t
 {
     ACCEPT,
     READ,
@@ -40,7 +40,7 @@ struct event_object
     int fd = -1;
     int rv = -1;
     uint32_t flags = 0;
-    event_type type = EMPTY;
+    event_type type = event_type::EMPTY;
 };
 
 struct client
