@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <utility>
 
-enum class msg_type: uint8_t {
+enum class itc_message_type: uint8_t {
     NEW_CONNECTION,
     CLIENT_DISCONNECTED,
     SERVER_DISCONNECTED,
@@ -13,9 +13,12 @@ struct itc_message
 {
     union 
     {
-        uint32_t sock_fd;
-        std::pair<uint32_t, uint32_t> sock_fd_pair;
+        int sock_fd;
+        struct {
+            int client_fd;
+            int server_fd;
+        } sock_pair;
     };
     
-    msg_type type;
+    itc_message_type type = itc_message_type::EMPTY;
 };

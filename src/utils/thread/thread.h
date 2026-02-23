@@ -7,9 +7,11 @@ struct thread
     int start();
     int stop();
 
-    static void* function(void*);
+    virtual void function() = 0;
 
-private:
+    static void* function_wrapper(void* arg);
+
+protected:
     std::atomic_bool stop_flag = true;
     pthread_t th = 0;
 };

@@ -11,18 +11,6 @@
 
 class event_loop;
 
-struct event_t
-{
-    union {
-        __u64 u64;
-        struct 
-        {
-            int fd;
-            uint8_t type;
-        };
-    };
-};
-
 enum class event_type: uint8_t
 {
     ACCEPT,
@@ -37,24 +25,13 @@ struct event_object
     void (*callback)(event_object& event);
     event_loop* el = nullptr;
     uint64_t u64 = -1;
+    size_t bid = -1;
     int fd = -1;
     int rv = -1;
     uint32_t flags = 0;
     event_type type = event_type::EMPTY;
 };
 
-struct client
-{
-    int conn_fd;
-    unsigned status;
-};
- 
-enum CLIENT_STATUS
-{
-    NEW,
-    RESOLVING,
-    AUTHORIZED
-};
 
 class event_loop {
 public:
@@ -64,10 +41,11 @@ public:
 
     void deinit();
     
-    int prep_accept(int sock_fd, void (*callback)(event_object& event));
-    int perp_recv(int sock_fd, void (*callback)(event_object& event));
-    int prep_send(int sock_fd, size_t buf_id, size_t len, void (*callback)(event_object& event));
-    int prep_send(int sock_fd, const char* data, size_t len, void (*callback)(event_object& event));
+    int prep_accept(int sock_fd, void (*callback)(event_object& event), uint64_t u64 = 0);
+    int perp_recv(int sock_fd, int flags, void (*callback)(event_object& event), uint64_t u64 = 0);
+    int prep_send(int sock_fd, size_t buf_id, size_t len, void (*callback)(event_object& event), uint64_t u64 = 0);
+    int prep_send(int sock_fd, const char* data, size_t len, void (*callback)(event_object& event), uint64_t u64 = 0);
+
     void free_buf(size_t buf_id);
 
     int process();

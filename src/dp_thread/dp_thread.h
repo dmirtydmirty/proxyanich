@@ -1,11 +1,12 @@
 #pragma once
-#include <boost/lockfree/spsc_queue.hpp>
 
 #include "itc/itc.h"
 #include "thread/thread.h"
+#include "event_loop/event_loop.h"
 
 struct dp_thread : thread
 {
-    static void* function(void*);
+    void function(void);
+    event_loop el;
 };
 
