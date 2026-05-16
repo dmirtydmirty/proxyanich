@@ -1,39 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 set(CMAKE_CXX_STANDARD 20)
-project(https_simple_proxy)
-
-set(3D_PARTY_DIR ${CMAKE_CURRENT_SOURCE_DIR}/3dparty)
-
-if (NOT EXISTS ${3D_PARTY_DIR})
-    message(FATAL_ERROR "no 3dparty directory found exit...")
-endif()
+project(vpnserver)
 
 option(SPDLOG_NO_EXCEPTIONS "Compile with -fno-exceptions. Call abort() on any spdlog exceptions" ON)
-add_subdirectory(${3D_PARTY_DIR}/spdlog)
-add_subdirectory(${3D_PARTY_DIR}/boost)
-
-
-set(LIBURING_LIB "${3D_PARTY_DIR}/liburing/src/liburing.a")
-set(LIBURING_INCLUDE "${3D_PARTY_DIR}/liburing/src/include")
-
-add_custom_target(liburing_make
-    COMMAND make -C ${3D_PARTY_DIR}/liburing -j6
-    COMMAND echo "Liburing built"
-)
-
-add_library(liburing STATIC IMPORTED)
-add_dependencies(liburing liburing_make)
-
-set_target_properties(liburing PROPERTIES
-    IMPORTED_LOCATION ${LIBURING_LIB}
-    INTERFACE_INCLUDE_DIRECTORIES ${LIBURING_INCLUDE}
-)
-
-add_library(http 
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/connect.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/http/response.cpp
-)
-target_include_directories(http PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/http)
+find_package(spdlog CONFIG REQUIRED)
 
 if(POLICY CMP0167)
     cmake_policy(SET CMP0167 NEW)
@@ -48,8 +18,7 @@ add_library(utils
 target_include_directories(utils PUBLIC 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utils/
 )
-
-target_link_libraries(utils PUBLIC spdlog::spdlog liburing)
+target_link_libraries(utils PUBLIC spdlog::spdlog uring)
 
 add_library(config 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/config/config.cpp
@@ -61,14 +30,9 @@ target_include_directories(config PUBLIC
 
 add_executable(${PROJECT_NAME} 
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/dp_thread/dp_thread.cpp
 )
 
-target_include_directories(${PROJECT_NAME} PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/dp_thread
-)
-
-target_link_libraries(${PROJECT_NAME} http utils config boost_lockfree)
+target_link_libraries(${PROJECT_NAME} utils config)
 
 include(FetchContent)
 FetchContent_Declare(
@@ -79,9 +43,6 @@ FetchContent_Declare(
 # For Windows: Prevent overriding the parent project's compiler/linker settings
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
-
-add_executable(http_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_http.cpp)
-target_link_libraries(http_test http GTest::gtest_main)
 
 add_executable(indexed_list_test ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_indexed_list.cpp)
 target_link_libraries(indexed_list_test utils GTest::gtest_main)
